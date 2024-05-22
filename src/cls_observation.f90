@@ -17,6 +17,7 @@ module cls_observation
      procedure :: read_polarity_data => observation_read_polarity_data
      procedure :: read_sta_file => observation_read_sta_file
      procedure :: get_n_events => observation_get_n_events
+     procedure :: get_n_stations => observation_get_n_stations
      procedure :: get_n_obs_single => observation_get_n_obs_single
      procedure :: get_n_obs_all => observation_get_n_obs_all
      procedure :: get_azi_single => observation_get_azi_single
@@ -26,9 +27,14 @@ module cls_observation
      procedure :: get_pol_single => observation_get_pol_single
      procedure :: get_pol_all => observation_get_pol_all
      procedure :: get_sta_id => observation_get_sta_id
+     procedure :: get_stations => observation_get_stations
      
      
      generic :: get_n_obs => get_n_obs_single, get_n_obs_all
+     generic :: get_azi => get_azi_single, get_azi_all
+     generic :: get_inc => get_inc_single, get_inc_all
+     generic :: get_pol => get_pol_single, get_pol_all
+     
      
    end type observation
   
@@ -146,6 +152,7 @@ contains
     class(observation), intent(inout) :: self
     integer :: io, ierr, i
     character(len=16) :: sta
+    double precision :: lat, lon, dep
     
     open(newunit=io, file=self%sta_file, status='old', iostat=ierr)
 
@@ -155,18 +162,19 @@ contains
     end if
 
     self%n_stations = 0
-    self%sta = [character(len=16) :: ]
+    
     do
-       read(io, *, iostat=ierr)sta
+       read(io, *, iostat=ierr)
        if (ierr /= 0) exit
-       self%sta = [self%sta, sta]
        self%n_stations = self%n_stations + 1
     end do
+
+    allocate(self%sta(self%n_stations))
 
     rewind(io)
 
     do i = 1, self%n_stations
-       read(io, *) self%sta(i)
+       read(io, *) self%sta(i), lat, lon, dep
     end do
     
     close(io)
@@ -182,6 +190,15 @@ contains
     
   end function observation_get_n_events
 
+  !-----------------------------------------------------------------------
+
+  integer function observation_get_n_stations(self) result(n_stations)
+    class(observation), intent(in) :: self
+
+    n_stations = self%n_stations
+    
+  end function observation_get_n_stations
+  
   !-----------------------------------------------------------------------
 
   integer function observation_get_n_obs_single(self, i_evt) result(n_obs)
@@ -298,6 +315,18 @@ contains
     end do
     
   end function observation_get_sta_id
+
+  !-----------------------------------------------------------------------
+
+  function observation_get_stations(self) result(sta)
+    class(observation), intent(in) :: self
+    character(len=16) :: sta(self%n_stations)
+    integer :: i
+    
+    sta(1:self%n_stations) = self%sta(1:self%n_stations)
+    
+  end function observation_get_stations
+  
 end module cls_observation
 
     
