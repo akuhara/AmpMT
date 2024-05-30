@@ -37,13 +37,15 @@ COV =
 BINDIR = ../bin
 CMT_BY_AMP = $(BINDIR)/cmt_by_amp
 
-OBJS_CMT_BY_AMP = cmt_by_amp.o cls_radiation.o cls_observation.o cls_moment.o
+OBJS_CMT_BY_AMP = cmt_by_amp.o cls_radiation.o cls_observation.o cls_moment.o cls_model.o mod_random.o mod_mpi.o
 
 TARGET = $(CMT_BY_AMP)
 .PHONY: all
 all: $(TARGET)
 
-cmt_by_amp.o: cls_radiation.mod cls_observation.mod cls_moment.mod
+cmt_by_amp.o: cls_radiation.mod cls_observation.mod cls_moment.mod \
+	      cls_model.mod mod_mpi.mod
+cls_model.o: mod_random.mod
 
 $(CMT_BY_AMP): $(OBJS_CMT_BY_AMP)
 	@if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
