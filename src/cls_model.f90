@@ -175,6 +175,9 @@ contains
             & -((x_new- self%mu(i))**2 - (x_old-self%mu(i))**2) / &
             & (2.d0 * self%sigma(i) * self%sigma(i))
     else
+       if (x_new < self%mu(i) .or. x_new > self%sigma(i)) then
+          prior_ok = .false.
+       end if
        log_prior_ratio = 0.0
     end if
 

@@ -16,11 +16,12 @@ module cls_moment
      double precision :: u_min = 0.d0, u_max = 0.75d0 * pi
      double precision :: v_min = -1.0 / 3.0, v_max = 1.0 / 3.0
      double precision :: k_min = 0.d0, k_max = 2.d0 * pi
-     double precision :: s_min = -2.d0 * pi, s_max = 2.d0 * pi
+     double precision :: s_min = -0.5d0 * pi, s_max = 0.5d0 * pi
      double precision :: h_min = 0.d0 * pi, h_max = 1.d0
   
    contains
      procedure :: construct_moment => moment_construct_moment
+     procedure :: get_moment => moment_get_moment
      procedure :: get_u => moment_get_u
      procedure :: get_v => moment_get_v
      procedure :: get_k => moment_get_k
@@ -41,6 +42,9 @@ module cls_moment
      procedure :: get_s_max => moment_get_s_max
      procedure :: get_h_min => moment_get_h_min
      procedure :: get_h_max => moment_get_h_max
+     procedure :: get_strike => moment_get_strike
+     procedure :: get_dip => moment_get_dip
+     procedure :: get_rake => moment_get_rake
      
 
   end type moment
@@ -145,13 +149,32 @@ contains
 
   double precision function u2beta(u) result(beta)
     double precision, intent(in) :: u
-    
+    double precision :: beta1, beta2, beta_m
     ! Newton's method
-    beta = u
+    !beta = u * 4.d0 / 3.d0
+    !
+    !do while (abs(f(beta, u)) > 1.d-12)
+    !   print *, " -- beta= ", beta, " f(beta) = ", f(beta, u), " f'(beta) = ", f_prime(beta)
+    !  beta = beta - f(beta, u) / f_prime(beta)
+    !end do
+
+    ! Bisection method
+    beta1 = 0.d0
+    beta2 = pi
+
     
-    do while (abs(f(beta, u)) > 1.d-12)
-      beta = beta - f(beta, u) / f_prime(beta)
+    do while (abs(beta1 - beta2) > 1.d-12)
+       beta_m = (beta1 + beta2) / 2.d0
+       if (f(beta_m, u) * f(beta1, u) > 0.d0) then
+          beta1 = beta_m
+       else if (f(beta_m, u) * f(beta2, u) > 0.d0) then
+          beta2 = beta_m
+       else
+          exit
+       end if
     end do
+
+    beta = beta_m
     
   end function u2beta
   
@@ -193,28 +216,44 @@ contains
   subroutine moment_construct_moment(self)
     class(moment), intent(inout) :: self
 
+    !print *, "u = ", self%u
+    !print *, "v = ", self%v
+    !print *, "k = ", self%k
+    !print *, "s = ", self%s
+    !print *, "h = ", self%h
+    
     self%gamma = v2gamma(self%v)
+    !print *, "gamma = ", self%gamma
     self%theta = h2theta(self%h)
+    !print *, "theta = ", self%theta
     self%beta = u2beta(self%u)
+    !print *, "beta = ", self%beta
     self%lamda = make_lambda(self%beta, self%gamma)
+    !print *, "lamda = ", self%lamda
     self%rota = make_rota(self%k, self%s, self%theta)
-
+    !print *, "rota = ", self%rota    
     self%moment = matmul(self%rota,matmul(self%lamda, transpose(self%rota)))
+    !print *, "moment = ", self%moment
+    
 
-    print *, "u = ", self%u
-    print *, "v = ", self%v
-    print *, "k = ", self%k
-    print *, "s = ", self%s
-    print *, "h = ", self%h
-    print *, "gamma = ", self%gamma
-    print *, "theta = ", self%theta
-    print *, "beta = ", self%beta
-    print *, "lamda = ", self%lamda
-    print *, "rota = ", self%rota
-    print *, "moment = ", self%moment
+
+
+
+
+
     
   end subroutine moment_construct_moment
   
+  !---------------------------------------------------------------------
+
+  function moment_get_moment(self) result(m)
+    class(moment), intent(in) :: self
+    double precision :: m(3,3)
+    
+    m = self%moment
+    
+  end function moment_get_moment
+
   !---------------------------------------------------------------------
 
   double precision function moment_get_u(self) result(u)
@@ -262,6 +301,33 @@ contains
 
   !---------------------------------------------------------------------
 
+  double precision function moment_get_strike(self) result(strike)
+    class(moment), intent(in) :: self
+    
+    strike = self%k * 180.d0 / pi
+    
+  end function moment_get_strike
+  
+  !---------------------------------------------------------------------
+
+  double precision function moment_get_dip(self) result(dip)
+    class(moment), intent(in) :: self
+    
+    dip = self%s * 180.d0 / pi
+    
+  end function moment_get_dip
+
+  !---------------------------------------------------------------------
+
+  double precision function moment_get_rake(self) result(rake)
+    class(moment), intent(in) :: self
+    
+    rake = self%theta * 180.d0 / pi
+    
+  end function moment_get_rake
+
+  !---------------------------------------------------------------------
+  
   subroutine moment_set_u(self, u)
     class(moment), intent(inout) :: self
     double precision, intent(in) :: u
