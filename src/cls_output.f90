@@ -344,7 +344,6 @@ contains
     end if
 
     print *, 'Writing to file ', filename
-    write(io, *)"TEST"
     do i = 1, self%n_source_type
        write(io, *) self%source_a(i), self%source_b(i)
     end do
