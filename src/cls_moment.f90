@@ -10,7 +10,7 @@ module cls_moment
      
      double precision :: u, v, k, s, h
      double precision :: gamma, theta, beta
-     double precision :: lamda(3,3)
+     double precision :: lambda(3,3)
      double precision :: rota(3,3)
      double precision :: moment(3,3)
      double precision :: u_min = 0.d0, u_max = 0.75d0 * pi
@@ -45,7 +45,8 @@ module cls_moment
      procedure :: get_strike => moment_get_strike
      procedure :: get_dip => moment_get_dip
      procedure :: get_rake => moment_get_rake
-     
+     procedure :: get_eigenvalues => moment_get_eigenvalues
+     procedure :: get_principal_axes => moment_get_principal_axes
 
   end type moment
 
@@ -228,11 +229,11 @@ contains
     !print *, "theta = ", self%theta
     self%beta = u2beta(self%u)
     !print *, "beta = ", self%beta
-    self%lamda = make_lambda(self%beta, self%gamma)
-    !print *, "lamda = ", self%lamda
+    self%lambda = make_lambda(self%beta, self%gamma)
+    !print *, "lambda = ", self%lambda
     self%rota = make_rota(self%k, self%s, self%theta)
     !print *, "rota = ", self%rota    
-    self%moment = matmul(self%rota,matmul(self%lamda, transpose(self%rota)))
+    self%moment = matmul(self%rota,matmul(self%lambda, transpose(self%rota)))
     !print *, "moment = ", self%moment
     
 
@@ -465,6 +466,26 @@ contains
     h_max = self%h_max
     
   end function moment_get_h_max
+
+  !---------------------------------------------------------------------
+
+  function moment_get_eigenvalues(self) result(eigen_v)
+    class(moment), intent(in) :: self
+    double precision :: eigen_v(3)
+
+    eigen_v(1:3) = [self%lambda(1,1), self%lambda(2,2), self%lambda(3,3)]
+    
+  end function moment_get_eigenvalues
+
+  !---------------------------------------------------------------------
+
+  function moment_get_principal_axes(self) result(principal_axes)
+    class(moment), intent(in) :: self
+    double precision :: principal_axes(3,3)
+
+    principal_axes = self%rota
+    
+  end function moment_get_principal_axes
 
   !---------------------------------------------------------------------
   

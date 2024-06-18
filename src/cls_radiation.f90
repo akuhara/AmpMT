@@ -63,7 +63,12 @@ contains
     double precision, intent(out) :: amp(3)
     double precision :: gamma2(3,3), amp_xyz(3)
     double precision :: e_r(3), e_theta(3), e_phi(3)
-    
+    double precision :: sth, cth, sph, cph
+
+    sth = sin(theta)
+    cth = cos(theta)
+    sph = sin(phi)
+    cph = cos(phi)
     
     ! Check phase validity
     if (phase /= "P" .and. phase /= "S") then
@@ -72,16 +77,16 @@ contains
     end if
 
     ! Convert spherical coordinates to cartesian coordinates
-    e_r(1) = sin(theta)*cos(phi)
-    e_r(2) = sin(theta)*sin(phi)
-    e_r(3) = cos(theta)
+    e_r(1) = sth*cph
+    e_r(2) = sth*sph
+    e_r(3) = cth
 
-    e_theta(1) = cos(theta)*cos(phi)
-    e_theta(2) = cos(theta)*sin(phi)
-    e_theta(3) = -sin(theta)
+    e_theta(1) = cth*cph
+    e_theta(2) = cth*sph
+    e_theta(3) = -sth
 
-    e_phi(1) = -sin(phi)
-    e_phi(2) = cos(phi)
+    e_phi(1) = -sph
+    e_phi(2) = cph
     e_phi(3) = 0.d0
     
 
@@ -97,7 +102,7 @@ contains
        !print *, "P-wave radiation pattern"
 
        do i = 1, 3
-          amp_xyz(i) = e_r(i) * sum(gamma2(:,:)*self%mt(:,:))
+          amp_xyz(i) = e_r(i) * sum(gamma2(1:3,1:3)*self%mt(1:3,1:3))
        end do
        
     else

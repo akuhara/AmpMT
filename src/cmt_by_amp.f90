@@ -1,4 +1,14 @@
-program CMTbyAmp
+!***********************************************************************
+
+!  CMTbyAmp: A program to estimate CMT solutions using amplitude ratios
+
+!* Note: 1st axis: North, 2nd axis: East, 3rd axis: Down
+  !        This is different from Tape and Tape (2012) convention
+  !        Azimuth is measured clockwise from the North
+  !        Inclination is measured from the vertical downward
+
+  !      Lower hemisphere equal area projection is used (Schmidt net)
+program cmtbyamp
   use mod_mpi
   use mod_random
   use cls_radiation, only: radiation
@@ -12,15 +22,8 @@ program CMTbyAmp
   implicit none
   double precision, parameter :: pi = acos(-1.0d0)
 
-  ! Note the coordinate definition. For f-net CMT solution,
-  ! the x-axis is pointing to the north, the y-axis is pointing to
-  ! the east, and the z-axis is pointing downward.
-  double precision :: m_xx = -4.7005d0, m_yy = -0.6250d0, m_zz = 5.3255d0
-  double precision :: m_xy = 2.6538d0, m_xz = 2.5805d0, m_yz = -2.0563d0
+
   double precision :: m(3,3)
-  !double precision :: u =  pi * 3.d0 / 8.d0, v = -1.d0 / 9.d0, k = 4.d0 * pi / 5.d0
-  !double precision :: s = - pi / 2.d0, h = 3.d0 / 4.d0
-  
   double precision :: phi, theta, amp(3)
   double precision :: easting, northing
 
@@ -29,7 +32,8 @@ program CMTbyAmp
   character(16), allocatable :: stations(:)
   integer :: i, j, n_sta, n_evt, i_sta, i_evt
   integer :: ierr, rank, n_procs
-  integer :: n_chain = 10, n_iter = 20000, n_cool = 2, n_burn = 10000
+  integer :: n_chain = 5, n_iter = 10000, n_cool = 1, n_burn = 5000
+  integer :: n_interval = 10
   double precision :: temp_high = 300.d0, temp
   type(radiation) :: rad
   type(observation) :: obs
@@ -39,7 +43,7 @@ program CMTbyAmp
   type(parallel) :: pt
   type(mcmc) :: mc
   type(forward) :: fwd
-  type(output) :: out
+  type(output), allocatable :: out(:)
   character(*), parameter :: pol_file = "/home/akuhara/Develop/CMTbyAmp/Data/obs_least.dat"
   character(*), parameter :: sta_file = "/home/akuhara/Develop/CMTbyAmp/Data/station.list"
   logical :: verb
@@ -80,7 +84,12 @@ program CMTbyAmp
 
   fwd = forward(obs=obs)
 
-  out = output(n_events=n_evt)
+  allocate(out(n_evt))
+  do i = 1, n_evt
+     out(i) = output(n_iter=n_iter, n_chain=n_chain, n_cool=n_cool, &
+          n_burn=n_burn, n_interval=n_interval)
+  end do
+
   
   ! Initialize moment
   allocate(mt(n_evt))
@@ -160,8 +169,8 @@ program CMTbyAmp
 
   do i = 1, n_iter
 
-     if (mod(i, 1000) == 0) then
-        print *, "Iter ", i, " / ", n_iter, "-----------------------------------"
+     if (mod(i, n_interval) == 0) then
+        if (rank == 0) print *, "Iter ", i, " / ", n_iter
      end if
      do j = 1, n_chain
         mc = pt%get_mc(j)
@@ -179,11 +188,11 @@ program CMTbyAmp
         call pt%set_mc(j, mc)
 
         ! recording
-        if (mc%get_temp() < 1.d0 + eps .and. mod(i, 50) == 1 .and. &
+        if (mc%get_temp() < 1.d0 + eps .and. mod(i, n_interval) == 1 .and. &
              i > n_burn) then
-           write(222,*) i, j, mc%write_out_q()
-           write(333,*) i, j, mc%write_out_u()
-           write(444,*) i, j, mc%write_out_v()
+           !write(222,*) i, j, mc%write_out_q()
+           !write(333,*) i, j, mc%write_out_u()
+           !write(444,*) i, j, mc%write_out_v()
 
            u = mc%get_u()
            v = mc%get_v()
@@ -194,20 +203,87 @@ program CMTbyAmp
            do i_evt = 1, n_evt
               mt(i_evt) = moment(u=u%get_x(i_evt), v=v%get_x(i_evt), &
                    k=k%get_x(i_evt), s=s%get_x(i_evt), h=h%get_x(i_evt))
-              call out%count_pol(i_evt, mt(i_evt))
+              call out(i_evt)%count_pol(mt(i_evt))
+              call out(i_evt)%count_source_type(mt(i_evt))
+              call out(i_evt)%count_fault_type(mt(i_evt))
            end do
-           write(555,*) i, j, (mt(i_evt)%get_strike(), i_evt = 1, n_evt)
-           write(666,*) i, j, (mt(i_evt)%get_dip(), i_evt = 1, n_evt)
-           write(777,*) i, j, (mt(i_evt)%get_rake(), i_evt = 1, n_evt)
+           !write(555,*) i, j, (mt(i_evt)%get_strike(), i_evt = 1, n_evt)
+           !write(666,*) i, j, (mt(i_evt)%get_dip(), i_evt = 1, n_evt)
+           !write(777,*) i, j, (mt(i_evt)%get_rake(), i_evt = 1, n_evt)
            
         end if
      end do
      call pt%swap_temperature(verb=verb)
   end do
 
-  print *, "Writing output"
-  call out%write_pol(1, "pol.out")
-  
+
+  block
+    double precision, allocatable :: pol_cum_all(:,:)
+    double precision, allocatable :: pol_cum(:,:)
+    integer :: n_pol_cum, n_pol_cum_all
+    integer :: dim(2)
+    character(255) :: out_file
+    
+    
+    if (rank==0) print *, "Writing output"
+    
+    do i = 1, n_evt
+
+       ! polarization
+       n_pol_cum = out(i)%get_n_pol_cum()
+       pol_cum = out(i)%get_pol_cum()
+       dim = shape(pol_cum)
+       allocate(pol_cum_all(dim(1), dim(2)))
+       
+       call mpi_reduce(pol_cum, pol_cum_all, size(pol_cum), &
+            mpi_double_precision, mpi_sum, 0, MPI_COMM_WORLD, ierr)
+       call mpi_reduce(n_pol_cum, n_pol_cum_all, 1, &
+            mpi_integer, mpi_sum, 0, MPI_COMM_WORLD, ierr)
+       
+       
+       if (rank == 0) then
+          call out(i)%set_pol_cum(pol_cum_all)
+          call out(i)%set_n_pol_cum(n_pol_cum_all)
+          write(out_file, "(A, I5.5, A)") "pol_", i, ".dat"
+          call out(i)%write_pol(out_file)
+          
+       end if
+
+       deallocate(pol_cum_all)
+
+       ! source type
+
+       write(out_file, "(A, I5.5, A)") "source_", i, ".dat"
+
+       if (rank == 0) then
+          call out(i)%write_source_type(out_file)
+       end if
+       call mpi_barrier(MPI_COMM_WORLD, ierr)
+       
+       do j = 1, n_procs-1
+          if (rank == j) then
+             call out(i)%write_append_source_type(out_file)
+          end if
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+       end do
+
+       ! fault type
+       write(out_file, "(A, I5.5, A)") "fault_", i, ".dat"
+
+       if (rank == 0) then
+          call out(i)%write_fault_type(out_file)
+       end if
+       call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+       do j = 1, n_procs-1
+          if (rank == j) then
+             call out(i)%write_append_fault_type(out_file)
+          end if
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+       end do
+    end do
+  end block
+    
 !  rad = radiation(m_xx, m_yy, m_zz, m_xy, m_xz, m_yz)
 !  
 !  do i = 1, 360
@@ -227,5 +303,5 @@ program CMTbyAmp
 
   call mpi_finalize(ierr)
   
-end program CMTbyAmp
+end program cmtbyamp
   

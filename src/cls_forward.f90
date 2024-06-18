@@ -60,7 +60,7 @@ contains
     inc = self%obs%get_inc()
 
     log_likelihood = 0.d0
-    
+
     ! Calculate the forward model
     
     do i_evt = 1, self%n_events
