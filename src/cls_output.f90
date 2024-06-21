@@ -2,20 +2,23 @@ module cls_output
   use cls_radiation, only: radiation
   use cls_moment, only: moment
   implicit none
-
+  
   type output
      private
      
      double precision :: d_theta = 2.0d0
      double precision :: d_phi = 2.0d0
      integer :: n_theta, n_phi
-     integer :: n_mod_max = 0
      
      double precision, allocatable :: pol_cum(:,:)
      integer :: n_pol_cum = 0
      
      double precision, allocatable :: source_a(:), source_b(:)
      double precision, allocatable :: fault_h(:), fault_v(:)
+     double precision, allocatable :: p_dip(:), b_dip(:), t_dip(:)
+     double precision, allocatable :: p_strike(:), b_strike(:), t_strike(:)
+     double precision, allocatable :: likelihood(:)
+     double precision, allocatable :: mxx(:), myy(:), mzz(:), mxy(:), mxz(:), myz(:)
      integer :: n_source_type = 0
      integer :: n_fault_type = 0
      
@@ -25,7 +28,9 @@ module cls_output
      procedure :: count_source_type => output_count_source_type
      procedure :: get_pol_cum => output_get_pol_cum
      procedure :: count_fault_type => output_count_fault_type
-     
+     procedure :: count_principal_axes => output_count_principal_axes
+     procedure :: save_likelihood => output_save_likelihood
+     procedure :: save_moment => output_save_moment
      procedure :: get_n_pol_cum => output_get_n_pol_cum
      procedure :: set_pol_cum => output_set_pol_cum
      procedure :: set_n_pol_cum => output_set_n_pol_cum
@@ -33,27 +38,22 @@ module cls_output
      procedure :: get_n_phi => output_get_n_phi
      procedure :: add_source_type => output_add_source_type
      procedure :: write_source_type => output_write_source_type
-     procedure :: write_append_source_type => output_write_append_source_type
      procedure :: write_fault_type => output_write_fault_type
-     procedure :: write_append_fault_type => output_write_append_fault_type
+     procedure :: write_principal_axes => output_write_principal_axes
+     procedure :: write_summary => output_write_summary
      
   end type output
-    
+  
   
   interface output
-       module procedure :: init_output
+     module procedure :: init_output
   end interface output
-
+  
 contains
-
+  
   !---------------------------------------------------------------------
   
-  type(output) function init_output(n_iter, n_chain, n_cool, &
-       n_burn, n_interval) result(self)
-
-    integer, intent(in) :: n_iter, n_chain, n_cool, n_burn, n_interval
-
-    self%n_mod_max = n_chain * n_cool * (n_iter - n_burn) / n_interval
+  type(output) function init_output() result(self)
     
     self%n_phi = 360.0d0 / self%d_phi
     self%n_theta = 90.0d0 / self%d_theta
@@ -62,16 +62,57 @@ contains
     allocate(self%pol_cum(self%n_phi, self%n_theta))
     self%pol_cum = 0.0d0
 
-    
-    allocate(self%source_a(self%n_mod_max))
-    allocate(self%source_b(self%n_mod_max))
-    allocate(self%fault_h(self%n_mod_max))
-    allocate(self%fault_v(self%n_mod_max))
+
+    self%source_a = [ double precision :: ]
+    self%source_b = [ double precision :: ]
+    self%fault_h = [ double precision :: ]
+    self%fault_v = [ double precision :: ]
+    self%p_dip = [ double precision :: ]
+    self%b_dip = [ double precision :: ]
+    self%t_dip = [ double precision :: ]
+    self%p_strike = [ double precision :: ]
+    self%b_strike = [ double precision :: ]
+    self%t_strike = [ double precision :: ]
+    self%likelihood = [ double precision :: ]
+    self%mxx = [ double precision :: ]
+    self%myy = [ double precision :: ]
+    self%mzz = [ double precision :: ]
+    self%mxy = [ double precision :: ]
+    self%mxz = [ double precision :: ]
+    self%myz = [ double precision :: ]
     
   end function init_output
   
-!---------------------------------------------------------------------
+  !---------------------------------------------------------------------
 
+  subroutine output_save_likelihood(self, likelihood)
+    class(output), intent(inout) :: self
+    double precision, intent(in) :: likelihood
+    
+    self%likelihood = [self%likelihood, likelihood]
+    
+  end subroutine output_save_likelihood
+  
+  !---------------------------------------------------------------------
+
+  subroutine output_save_moment(self, mt)
+    class(output), intent(inout) :: self
+    type(moment), intent(in) :: mt
+    double precision :: m(3,3)
+    
+    m = mt%get_moment()
+    
+    self%mxx = [self%mxx, m(1,1)]
+    self%myy = [self%myy, m(2,2)]
+    self%mzz = [self%mzz, m(3,3)]
+    self%mxy = [self%mxy, m(1,2)]
+    self%mxz = [self%mxz, m(1,3)]
+    self%myz = [self%myz, m(2,3)]
+    
+  end subroutine output_save_moment
+
+  !---------------------------------------------------------------------
+  
   subroutine output_count_pol(self, mt)
     class(output), intent(inout) :: self
     type(moment), intent(in) :: mt
@@ -103,9 +144,9 @@ contains
     self%n_pol_cum = self%n_pol_cum + 1
     
   end subroutine output_count_pol
-
+  
   !---------------------------------------------------------------------
-
+  
   subroutine output_write_pol(self, filename)
     class(output), intent(inout) :: self
     character(len=*), intent(in) :: filename
@@ -139,10 +180,8 @@ contains
     close(io)
   end subroutine output_write_pol
     
-    
-  
   !---------------------------------------------------------------------
-
+  
   subroutine output_count_source_type(self, mt)
     class(output), intent(inout) :: self
     type(moment), intent(in) :: mt
@@ -165,10 +204,11 @@ contains
     b = (l_sum / s3) / (1.d0 + f)
 
     self%n_source_type = self%n_source_type + 1
-    
-    self%source_a(self%n_source_type) = a
-    self%source_b(self%n_source_type) = b
-    
+
+    self%source_a = [self%source_a, a]
+    self%source_b = [self%source_b, b]
+    !self%source_a(self%n_source_type) = a
+    !self%source_b(self%n_source_type) = b
     
   end subroutine output_count_source_type
   
@@ -201,22 +241,69 @@ contains
     h = sqrt(2.d0) * cos(b_dip) * sin(psi) / denom
     v = sqrt(2.d0) * (cos(rad35_264) * sin(b_dip) - sin(rad35_264) * cos(b_dip) * cos(psi)) / &
          denom
-
+    
     !print *, "h=", h, "v=", v
     self%n_fault_type = self%n_fault_type + 1
-    self%fault_h(self%n_fault_type) = h
-    self%fault_v(self%n_fault_type) = v
-
-    !print *, "p_dip=", p_dip * 180.d0 / pi, "b_dip=", b_dip * 180.d0 / pi, &
-    !        "t_dip=", t_dip * 180.d0 / pi, "psi=", psi * 180.d0 / pi, "h=", h, "v=", v, "denom=", denom
-    !
-    !print *, "validate ", sin(b_dip)**2 + sin(p_dip)**2 + sin(t_dip)**2     
-  end subroutine output_count_fault_type
     
+    self%fault_h = [self%fault_h, h]
+    self%fault_v = [self%fault_v, v]
+    
+    
+  end subroutine output_count_fault_type
+  
   
   !---------------------------------------------------------------------
   
+  subroutine output_count_principal_axes(self, mt)
+    class(output), intent(inout) :: self
+    type(moment), intent(in) :: mt
+    double precision :: axes(3,3)
+    double precision :: p_dip, b_dip, t_dip, p_strike, b_strike, t_strike
+    double precision, parameter :: pi = acos(-1.0d0)
+    double precision, parameter :: rad2deg = 180.d0 / pi
+    axes = mt%get_principal_axes()
 
+    if (axes(1,3) < 0.d0) then
+       axes(1,1) = -axes(1,1)
+       axes(1,2) = -axes(1,2)
+       axes(1,3) = -axes(1,3)
+    end if
+    if (axes(2,3) < 0.d0) then
+       axes(2,1) = -axes(2,1)
+       axes(2,2) = -axes(2,2)
+       axes(2,3) = -axes(2,3)
+    end if
+    if (axes(3,3) < 0.d0) then
+       axes(3,1) = -axes(3,1)
+       axes(3,2) = -axes(3,2)
+       axes(3,3) = -axes(3,3)
+    end if
+    
+    p_dip = atan((axes(1,3)) / sqrt(axes(1,1)**2 + axes(1,2)**2)) &
+         * rad2deg
+    b_dip = atan((axes(2,3)) / sqrt(axes(2,1)**2 + axes(2,2)**2)) &
+         * rad2deg
+    t_dip = atan((axes(3,3)) / sqrt(axes(3,1)**2 + axes(3,2)**2)) &
+         * rad2deg
+
+    
+    p_strike = atan2(axes(1,1), axes(1,2)) * rad2deg
+    b_strike = atan2(axes(2,1), axes(2,2)) * rad2deg
+    t_strike = atan2(axes(3,1), axes(3,2)) * rad2deg
+
+    self%p_dip = [self%p_dip, p_dip]
+    self%b_dip = [self%b_dip, b_dip]
+    self%t_dip = [self%t_dip, t_dip]
+    self%p_strike = [self%p_strike, p_strike]
+    self%b_strike = [self%b_strike, b_strike]
+    self%t_strike = [self%t_strike, t_strike]
+    
+    
+  end subroutine output_count_principal_axes
+  
+  !---------------------------------------------------------------------
+  
+  
   function projection_point(phi, theta) result (point)
     double precision, intent(in) :: phi, theta
     double precision :: point(2)
@@ -310,62 +397,69 @@ contains
 
   !---------------------------------------------------------------------
 
-  subroutine output_write_source_type(self, filename)
+  subroutine output_write_source_type(self, filename, mode)
     class(output), intent(inout) :: self
     character(len=*), intent(in) :: filename
+    character(len=*), intent(in), optional :: mode
     integer :: io, ierr
     integer :: i
+
+    if (present(mode)) then
+       if (mode == 'replace') then
+          open(newunit=io, file=filename, status='replace', iostat=ierr)
+       else if (mode == 'append') then
+          open(newunit=io, file=filename, status='old', iostat=ierr, &
+               position='append')
+       else
+          print *, 'Error: mode must be either "replace" or "append"'
+          error stop
+       end if
+    else
+       open(newunit=io, file=filename, status='replace', iostat=ierr)
+    end if
     
-    open(newunit=io, file=filename, status='replace', iostat=ierr)
     if (ierr /= 0) then
        print *, 'Error opening file'
        error stop
     end if
 
     print *, 'Writing to file ', filename
-    do i = 1, self%n_source_type
+    do i = 1, size(self%source_a)
        write(io, *) self%source_a(i), self%source_b(i)
     end do
     close(io)
   end subroutine output_write_source_type
 
   !---------------------------------------------------------------------
-
-  subroutine output_write_append_source_type(self, filename)
+  
+  subroutine output_write_fault_type(self, filename, mode)
     class(output), intent(inout) :: self
     character(len=*), intent(in) :: filename
+    character(len=*), intent(in), optional :: mode
     integer :: io, ierr
     integer :: i
+
+    if (present(mode)) then
+       if (mode == 'replace') then
+          open(newunit=io, file=filename, status='replace', iostat=ierr)
+       else if (mode == 'append') then
+          open(newunit=io, file=filename, status='old', iostat=ierr, &
+               position='append')
+       else
+          print *, 'Error: mode must be either "replace" or "append"'
+          error stop
+       end if
+    else
+       open(newunit=io, file=filename, status='replace', iostat=ierr)
+    end if
     
-    open(newunit=io, file=filename, status='old', iostat=ierr, position='append')
     if (ierr /= 0) then
        print *, 'Error opening file'
        error stop
     end if
 
     print *, 'Writing to file ', filename
-    do i = 1, self%n_source_type
-       write(io, *) self%source_a(i), self%source_b(i)
-    end do
-    close(io)
-  end subroutine output_write_append_source_type
-
-  !---------------------------------------------------------------------
-
-  subroutine output_write_fault_type(self, filename)
-    class(output), intent(inout) :: self
-    character(len=*), intent(in) :: filename
-    integer :: io, ierr
-    integer :: i
-    
-    open(newunit=io, file=filename, status='replace', iostat=ierr)
-    if (ierr /= 0) then
-       print *, 'Error opening file'
-       error stop
-    end if
-
-    print *, 'Writing to file ', filename
-    do i = 1, self%n_fault_type
+    do i = 1, size(self%fault_h)
        write(io, *) self%fault_h(i), self%fault_v(i)
     end do
     close(io)
@@ -373,23 +467,87 @@ contains
 
   !---------------------------------------------------------------------
 
-  subroutine output_write_append_fault_type(self, filename)
+  subroutine output_write_principal_axes(self, filename, mode)
     class(output), intent(inout) :: self
     character(len=*), intent(in) :: filename
+    character(len=*), intent(in), optional :: mode
     integer :: io, ierr
     integer :: i
-    
-    open(newunit=io, file=filename, status='old', iostat=ierr, position='append')
+
+    if (present(mode)) then
+       if (mode == 'replace') then
+          open(newunit=io, file=filename, status='replace', iostat=ierr)
+       else if (mode == 'append') then
+          open(newunit=io, file=filename, status='old', iostat=ierr, &
+               position='append')
+       else
+          print *, 'Error: mode must be either "replace" or "append"'
+          error stop
+       end if
+    else
+       open(newunit=io, file=filename, status='replace', iostat=ierr)
+    end if
+
     if (ierr /= 0) then
        print *, 'Error opening file'
        error stop
     end if
 
     print *, 'Writing to file ', filename
-    do i = 1, self%n_fault_type
-       write(io, *) self%fault_h(i), self%fault_v(i)
+    do i = 1, size(self%p_dip)
+       write(io, *) self%t_strike(i), self%t_dip(i), self%b_strike(i), &
+            self%b_dip(i), self%p_strike(i), self%p_dip(i)
+       
+       
     end do
     close(io)
-  end subroutine output_write_append_fault_type
 
+  end subroutine output_write_principal_axes
+  
+  !--------------------------------------------------------------
+  
+  subroutine output_write_summary(self, filename, mode)
+    class(output), intent(inout) :: self
+    character(len=*), intent(in) :: filename
+    character(len=*), intent(in), optional :: mode
+    integer :: io, ierr
+    integer :: i
+    
+    if (present(mode)) then
+       if (mode == 'replace') then
+          open(newunit=io, file=filename, status='replace', iostat=ierr)
+       else if (mode == 'append') then
+          open(newunit=io, file=filename, status='old', iostat=ierr, &
+               position='append')
+       else
+          print *, 'Error: mode must be either "replace" or "append"'
+          error stop
+       end if
+    else
+       open(newunit=io, file=filename, status='replace', iostat=ierr)
+    end if
+
+    if (ierr /= 0) then
+       print *, 'Error opening file'
+       error stop
+    end if
+
+    print *, 'Writing to file ', filename
+
+    do i = 1, size(self%likelihood)
+       ! mrr, mtt, mff, mrt, mrf, mtf
+       write(io, '(E10.3,6F8.3,6F9.2,4F8.3)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
+            self%mxz(i), -self%myz(i), -self%mxy(i), &
+            self%t_strike(i), self%t_dip(i), &
+            self%b_strike(i), self%b_dip(i), &
+            self%p_strike(i), self%p_dip(i), &
+            self%fault_h(i), self%fault_v(i), &
+            self%source_a(i), self%source_b(i)
+    end do
+    close(io)
+    
+  end subroutine output_write_summary
+
+  !--------------------------------------------------------------
+  
 end module cls_output

@@ -4,6 +4,7 @@
 
 !* Note: 1st axis: North, 2nd axis: East, 3rd axis: Down
   !        This is different from Tape and Tape (2012) convention
+  !        but consistent with the F-net definition
   !        Azimuth is measured clockwise from the North
   !        Inclination is measured from the vertical downward
 
@@ -32,8 +33,8 @@ program cmtbyamp
   character(16), allocatable :: stations(:)
   integer :: i, j, n_sta, n_evt, i_sta, i_evt
   integer :: ierr, rank, n_procs
-  integer :: n_chain = 5, n_iter = 10000, n_cool = 1, n_burn = 5000
-  integer :: n_interval = 10
+  integer :: n_chain = 5, n_iter = 200000, n_cool = 1, n_burn = 100000
+  integer :: n_interval = 5000
   double precision :: temp_high = 300.d0, temp
   type(radiation) :: rad
   type(observation) :: obs
@@ -86,8 +87,7 @@ program cmtbyamp
 
   allocate(out(n_evt))
   do i = 1, n_evt
-     out(i) = output(n_iter=n_iter, n_chain=n_chain, n_cool=n_cool, &
-          n_burn=n_burn, n_interval=n_interval)
+     out(i) = output()
   end do
 
   
@@ -206,6 +206,9 @@ program cmtbyamp
               call out(i_evt)%count_pol(mt(i_evt))
               call out(i_evt)%count_source_type(mt(i_evt))
               call out(i_evt)%count_fault_type(mt(i_evt))
+              call out(i_evt)%count_principal_axes(mt(i_evt))
+              call out(i_evt)%save_likelihood(mc%get_log_likelihood())
+              call out(i_evt)%save_moment(mt(i_evt))
            end do
            !write(555,*) i, j, (mt(i_evt)%get_strike(), i_evt = 1, n_evt)
            !write(666,*) i, j, (mt(i_evt)%get_dip(), i_evt = 1, n_evt)
@@ -256,13 +259,13 @@ program cmtbyamp
        write(out_file, "(A, I5.5, A)") "source_", i, ".dat"
 
        if (rank == 0) then
-          call out(i)%write_source_type(out_file)
+          call out(i)%write_source_type(out_file, "replace")
        end if
        call mpi_barrier(MPI_COMM_WORLD, ierr)
        
        do j = 1, n_procs-1
           if (rank == j) then
-             call out(i)%write_append_source_type(out_file)
+             call out(i)%write_source_type(out_file, "append")
           end if
           call mpi_barrier(MPI_COMM_WORLD, ierr)
        end do
@@ -271,13 +274,44 @@ program cmtbyamp
        write(out_file, "(A, I5.5, A)") "fault_", i, ".dat"
 
        if (rank == 0) then
-          call out(i)%write_fault_type(out_file)
+          call out(i)%write_fault_type(out_file, "replace")
        end if
        call mpi_barrier(MPI_COMM_WORLD, ierr)
 
        do j = 1, n_procs-1
           if (rank == j) then
-             call out(i)%write_append_fault_type(out_file)
+             call out(i)%write_fault_type(out_file, "append")
+          end if
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+       end do
+
+       ! principal axes
+       write(out_file, "(A, I5.5, A)") "axes_", i, ".dat"
+
+       if (rank == 0) then
+          call out(i)%write_principal_axes(out_file, "replace")
+       end if
+       call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+       do j = 1, n_procs-1
+          if (rank == j) then
+             call out(i)%write_principal_axes(out_file, "append")
+          end if
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+       end do
+
+       !summary
+
+       write(out_file, "(A, I5.5, A)") "summary_", i, ".dat"
+
+       if (rank == 0) then
+          call out(i)%write_summary(out_file, "replace")
+       end if
+       call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+       do j = 1, n_procs-1
+          if (rank == j) then
+             call out(i)%write_summary(out_file, "append")
           end if
           call mpi_barrier(MPI_COMM_WORLD, ierr)
        end do
