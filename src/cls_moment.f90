@@ -237,12 +237,6 @@ contains
     self%moment = matmul(self%rota,matmul(self%lambda, transpose(self%rota)))
     !print *, "moment = ", self%moment
     
-
-
-
-
-
-
     
   end subroutine moment_construct_moment
   
@@ -485,6 +479,11 @@ contains
     double precision :: principal_axes(3,3)
 
     principal_axes = self%rota
+
+    !Note that the principal axes are the columns of the rotation matrix
+    ! but in a reverse order, i.e. the last column is the first principal axis
+    ! See Section 3.4 in Tape and Tape (2015).
+
     
   end function moment_get_principal_axes
 

@@ -242,9 +242,9 @@ contains
        axes(2,3) = -axes(2,3)
        axes(3,3) = -axes(3,3)
     end if
-    p_dip = asin((axes(3,1)) / sqrt(axes(1,1)**2 + axes(2,1)**2 + axes(3,1)**2))
+    t_dip = asin((axes(3,1)) / sqrt(axes(1,1)**2 + axes(2,1)**2 + axes(3,1)**2))
     b_dip = asin((axes(3,2)) / sqrt(axes(1,2)**2 + axes(2,2)**2 + axes(3,2)**2))
-    t_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2))
+    p_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2))
     
     psi = atan(sin(t_dip) / sin(p_dip)) - rad45
 
@@ -291,17 +291,17 @@ contains
        axes(2,3) = -axes(2,3)
        axes(3,3) = -axes(3,3)
     end if
-    p_dip = asin((axes(3,1)) / sqrt(axes(1,1)**2 + axes(2,1)**2 + axes(3,1)**2)) &
+    t_dip = asin((axes(3,1)) / sqrt(axes(1,1)**2 + axes(2,1)**2 + axes(3,1)**2)) &
          * rad2deg
     b_dip = asin((axes(3,2)) / sqrt(axes(1,2)**2 + axes(2,2)**2 + axes(3,2)**2)) &
          * rad2deg
-    t_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2)) &
+    p_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2)) &
          * rad2deg
     
 
-    p_strike = atan2(axes(2,1), axes(1,1)) * rad2deg
+    t_strike = atan2(axes(2,1), axes(1,1)) * rad2deg
     b_strike = atan2(axes(2,2), axes(1,2)) * rad2deg
-    t_strike = atan2(axes(2,3), axes(1,3)) * rad2deg
+    p_strike = atan2(axes(2,3), axes(1,3)) * rad2deg
 
     
 

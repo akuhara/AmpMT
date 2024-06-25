@@ -209,7 +209,7 @@ program cmtbyamp
               call out(i_evt)%count_principal_axes(mt(i_evt))
               call out(i_evt)%save_likelihood(mc%get_log_likelihood())
               call out(i_evt)%save_moment(mt(i_evt))
-              !call mt(i_evt)%check_eigen()
+              call mt(i_evt)%check_eigen()
            end do
            !write(555,*) i, j, (mt(i_evt)%get_strike(), i_evt = 1, n_evt)
            !write(666,*) i, j, (mt(i_evt)%get_dip(), i_evt = 1, n_evt)
