@@ -227,12 +227,25 @@ contains
 
     axes = mt%get_principal_axes()
 
+    if (axes(3,1) < 0.d0) then
+       axes(1,1) = -axes(1,1)
+       axes(2,1) = -axes(2,1)
+       axes(3,1) = -axes(3,1)
+    end if
+    if (axes(3,2) < 0.d0) then
+      axes(1,2) = -axes(1,2)
+       axes(2,2) = -axes(2,2)
+       axes(3,2) = -axes(3,2)
+    end if
+   if (axes(3,3) < 0.d0) then
+       axes(1,3) = -axes(1,3)
+       axes(2,3) = -axes(2,3)
+       axes(3,3) = -axes(3,3)
+    end if
+    p_dip = asin((axes(3,1)) / sqrt(axes(1,1)**2 + axes(2,1)**2 + axes(3,1)**2))
+    b_dip = asin((axes(3,2)) / sqrt(axes(1,2)**2 + axes(2,2)**2 + axes(3,2)**2))
+    t_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2))
     
-    p_dip = atan(abs(axes(1,3)) / sqrt(axes(1,1)**2 + axes(1,2)**2))
-    b_dip = atan(abs(axes(2,3)) / sqrt(axes(2,1)**2 + axes(2,2)**2))
-    t_dip = atan(abs(axes(3,3)) / sqrt(axes(3,1)**2 + axes(3,2)**2))
-
-
     psi = atan(sin(t_dip) / sin(p_dip)) - rad45
 
     denom = sin(rad35_264) * sin(b_dip) + cos(rad35_264) * cos(b_dip) * cos(psi)
@@ -263,33 +276,34 @@ contains
     double precision, parameter :: rad2deg = 180.d0 / pi
     axes = mt%get_principal_axes()
 
-    if (axes(1,3) < 0.d0) then
+    if (axes(3,1) < 0.d0) then
        axes(1,1) = -axes(1,1)
-       axes(1,2) = -axes(1,2)
-       axes(1,3) = -axes(1,3)
-    end if
-    if (axes(2,3) < 0.d0) then
        axes(2,1) = -axes(2,1)
-       axes(2,2) = -axes(2,2)
-       axes(2,3) = -axes(2,3)
-    end if
-    if (axes(3,3) < 0.d0) then
        axes(3,1) = -axes(3,1)
+    end if
+    if (axes(3,2) < 0.d0) then
+      axes(1,2) = -axes(1,2)
+       axes(2,2) = -axes(2,2)
        axes(3,2) = -axes(3,2)
+    end if
+   if (axes(3,3) < 0.d0) then
+       axes(1,3) = -axes(1,3)
+       axes(2,3) = -axes(2,3)
        axes(3,3) = -axes(3,3)
     end if
+    p_dip = asin((axes(3,1)) / sqrt(axes(1,1)**2 + axes(2,1)**2 + axes(3,1)**2)) &
+         * rad2deg
+    b_dip = asin((axes(3,2)) / sqrt(axes(1,2)**2 + axes(2,2)**2 + axes(3,2)**2)) &
+         * rad2deg
+    t_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2)) &
+         * rad2deg
     
-    p_dip = atan((axes(1,3)) / sqrt(axes(1,1)**2 + axes(1,2)**2)) &
-         * rad2deg
-    b_dip = atan((axes(2,3)) / sqrt(axes(2,1)**2 + axes(2,2)**2)) &
-         * rad2deg
-    t_dip = atan((axes(3,3)) / sqrt(axes(3,1)**2 + axes(3,2)**2)) &
-         * rad2deg
+
+    p_strike = atan2(axes(2,1), axes(1,1)) * rad2deg
+    b_strike = atan2(axes(2,2), axes(1,2)) * rad2deg
+    t_strike = atan2(axes(2,3), axes(1,3)) * rad2deg
 
     
-    p_strike = atan2(axes(1,1), axes(1,2)) * rad2deg
-    b_strike = atan2(axes(2,1), axes(2,2)) * rad2deg
-    t_strike = atan2(axes(3,1), axes(3,2)) * rad2deg
 
     self%p_dip = [self%p_dip, p_dip]
     self%b_dip = [self%b_dip, b_dip]

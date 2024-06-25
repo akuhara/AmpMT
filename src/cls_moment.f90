@@ -47,6 +47,7 @@ module cls_moment
      procedure :: get_rake => moment_get_rake
      procedure :: get_eigenvalues => moment_get_eigenvalues
      procedure :: get_principal_axes => moment_get_principal_axes
+     procedure :: check_eigen => moment_check_eigen
 
   end type moment
 
@@ -488,6 +489,25 @@ contains
   end function moment_get_principal_axes
 
   !---------------------------------------------------------------------
+
+  subroutine moment_check_eigen(self)
+    class(moment), intent(in) :: self
+    double precision :: eigen_v(3)
+    double precision :: principal_axes(3,3)
+    double precision :: moment(3,3)
+    
+
+    eigen_v = self%get_eigenvalues()
+    principal_axes = self%get_principal_axes()
+    moment = self%get_moment()
+
+    print *, "Eigenvalues: ", eigen_v
+    print *, "Principal axes: ", principal_axes
+    print *, "Moment: ", moment
+
+    print *, "Check eigenvalues: ", matmul(transpose(principal_axes), matmul(moment, principal_axes))
+    
+  end subroutine moment_check_eigen
   
 end module cls_moment
   
