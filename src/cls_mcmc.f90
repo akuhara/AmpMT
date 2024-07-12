@@ -24,6 +24,8 @@ module cls_mcmc
      double precision :: temp = 1.d0
      logical :: is_accepted
 
+     logical :: dc_only = .false.
+
      double precision :: p_u, p_v, p_k, p_s, p_h, p_q
      
      
@@ -62,9 +64,14 @@ contains
 
   !---------------------------------------------------------------------
   
-  type(mcmc) function init_mcmc(u, v, k, s, h, q, n_iter) result(self)
+  type(mcmc) function init_mcmc(u, v, k, s, h, q, n_iter, dc_only) result(self)
     type(model), intent(in) :: u, v, k, s, h, q
     integer, intent(in) :: n_iter
+    logical, intent(in), optional :: dc_only
+
+    if (present(dc_only)) then
+       self%dc_only = dc_only
+    end if
     
     self%u = u
     self%v = v
@@ -87,12 +94,21 @@ contains
     self%log_likelihood = -9.d+300
 
     ! set proposal probability
-    self%p_u = 1.d0 / dble(self%n_sta + 5)
-    self%p_v = 1.d0 / dble(self%n_sta + 5)
-    self%p_k = 1.d0 / dble(self%n_sta + 5)
-    self%p_s = 1.d0 / dble(self%n_sta + 5)
-    self%p_h = 1.d0 / dble(self%n_sta + 5)
-    self%p_q = dble(self%n_sta) / dble(self%n_sta + 5)
+    if (.not. dc_only) then
+       self%p_u = 1.d0 / dble(self%n_sta + 5)
+       self%p_v = 1.d0 / dble(self%n_sta + 5)
+       self%p_k = 1.d0 / dble(self%n_sta + 5)
+       self%p_s = 1.d0 / dble(self%n_sta + 5)
+       self%p_h = 1.d0 / dble(self%n_sta + 5)
+       self%p_q = dble(self%n_sta) / dble(self%n_sta + 5)
+    else
+       self%p_u = 0.d0
+       self%p_v = 0.d0
+       self%p_k = 1.d0 / dble(self%n_sta + 3)
+       self%p_s = 1.d0 / dble(self%n_sta + 3)
+       self%p_h = 1.d0 / dble(self%n_sta + 3)
+       self%p_q = dble(self%n_sta) / dble(self%n_sta + 3)
+    end if
     
     print *, self%p_u, self%p_v, self%p_k, self%p_s, self%p_h, self%p_q
     print *, "n_events = ", self%n_events
@@ -358,7 +374,7 @@ contains
   end function mcmc_get_label
     
   !---------------------------------------------------------------------
-  
+
   function mcmc_write_out_u(self) result(out)
     class(mcmc), intent(inout) :: self
     double precision :: out(self%n_events)

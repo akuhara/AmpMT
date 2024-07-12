@@ -33,9 +33,11 @@ program cmtbyamp
   character(16), allocatable :: stations(:)
   integer :: i, j, n_sta, n_evt, i_sta, i_evt
   integer :: ierr, rank, n_procs
-  integer :: n_chain = 5, n_iter = 200000, n_cool = 1, n_burn = 100000
+  integer :: n_chain = 5, n_iter = 500000, n_cool = 1, n_burn = 250000
   integer :: n_interval = 5000
+  double precision :: q_min = 0.65d0, q_max = 1.d0
   double precision :: temp_high = 300.d0, temp
+  double precision, allocatable :: q_array(:)
   type(radiation) :: rad
   type(observation) :: obs
   type(moment), allocatable :: mt(:)
@@ -52,6 +54,7 @@ program cmtbyamp
   double precision :: log_prior_ratio, log_likelihood
   logical :: prior_ok
   integer :: id
+  logical, parameter :: dc_only = .true.
   
   call mpi_init(ierr)
   call mpi_comm_rank(mpi_comm_world, rank, ierr)
@@ -69,6 +72,9 @@ program cmtbyamp
   n_sta = obs%get_n_stations()
   n_evt = obs%get_n_events()
 
+
+  allocate(q_array(n_sta * n_evt)) ! for output
+  
   azi = obs%get_azi()
   inc = obs%get_inc()
   pol = obs%get_pol()
@@ -93,8 +99,8 @@ program cmtbyamp
   
   ! Initialize moment
   allocate(mt(n_evt))
-  mt(1) = moment(u=3.d0*pi/8.d0, v=-1.d0/9.d0, k=4.d0*pi/5.d0, &
-       s=-pi/2.d0, h=3.d0/4.d0)
+  
+  mt(1) = moment(u=3.d0*pi/8.d0, v=0.d0, k=pi, s=0.d0, h=0.5d0, dc_only=dc_only)
   m = mt(1)%get_moment()
 
 
@@ -114,7 +120,7 @@ program cmtbyamp
         call s%set_prior(i, mt(1)%get_s_min(), mt(1)%get_s_max(), 1)
         call h%set_prior(i, mt(1)%get_h_min(), mt(1)%get_h_max(), 1)
         do i_sta = 1, n_sta
-           call q%set_prior((i-1)*n_sta + i_sta, 0.7d0, 1.d0, 1)
+           call q%set_prior((i-1)*n_sta + i_sta, q_min, q_max, 1)
         end do
         
         call u%set_perturb(i, (mt(1)%get_u_max() - mt(1)%get_u_min()) / 50.d0)
@@ -150,7 +156,8 @@ program cmtbyamp
           s = s, &
           h = h, &
           q = q, &
-          n_iter = n_iter)
+          n_iter = n_iter, &
+          dc_only = dc_only)
 
 
      
@@ -199,7 +206,7 @@ program cmtbyamp
            k = mc%get_k()
            s = mc%get_s()
            h = mc%get_h()
-
+           q_array = mc%write_out_q()
            do i_evt = 1, n_evt
               mt(i_evt) = moment(u=u%get_x(i_evt), v=v%get_x(i_evt), &
                    k=k%get_x(i_evt), s=s%get_x(i_evt), h=h%get_x(i_evt))
@@ -209,7 +216,8 @@ program cmtbyamp
               call out(i_evt)%count_principal_axes(mt(i_evt))
               call out(i_evt)%save_likelihood(mc%get_log_likelihood())
               call out(i_evt)%save_moment(mt(i_evt))
-              call mt(i_evt)%check_eigen()
+              call out(i_evt)%save_q(q_array((i_evt-1)*n_sta+1:i_evt*n_sta))
+              !call mt(i_evt)%check_eigen()
            end do
            !write(555,*) i, j, (mt(i_evt)%get_strike(), i_evt = 1, n_evt)
            !write(666,*) i, j, (mt(i_evt)%get_dip(), i_evt = 1, n_evt)
@@ -316,6 +324,24 @@ program cmtbyamp
           end if
           call mpi_barrier(MPI_COMM_WORLD, ierr)
        end do
+
+       ! data quality
+
+       write(out_file, "(A, I5.5, A)") "quality_", i, ".dat"
+
+        if (rank == 0) then
+           call out(i)%write_q(out_file, "replace")
+        end if
+        call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+        do j = 1, n_procs-1
+           if (rank == j) then
+              call out(i)%write_q(out_file, "append")
+           end if
+           call mpi_barrier(MPI_COMM_WORLD, ierr)
+        end do
+        
+       
     end do
   end block
     

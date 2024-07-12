@@ -59,6 +59,33 @@ contains
 
   !---------------------------------------------------------------------
 
+  type(moment) function init_moment(u, v, k, s, h, dc_only) result(self)
+    double precision, intent(in) :: u, v, k, s, h
+    logical, intent(in), optional :: dc_only
+    double precision, parameter :: pi = acos(-1.d0)
+
+    if (present(dc_only) .and. dc_only) then
+       if (dc_only) then
+          self%u_min = 3.d0 * pi / 8.d0
+          self%u_max = 3.d0 * pi / 8.d0
+          self%v_min = 0.d0
+          self%v_max = 0.d0
+          
+       end if
+    end if
+    
+    self%u = u
+    self%v = v
+    self%k = k
+    self%s = s
+    self%h = h
+    
+    call self%construct_moment()
+    
+  end function init_moment
+  
+  !---------------------------------------------------------------------
+  
   function make_rota(k, s, theta) result(rota)
     double precision, intent(in) :: k, s, theta
     double precision :: rota(3,3)
@@ -200,20 +227,7 @@ contains
   
   !---------------------------------------------------------------------
 
-  type(moment) function init_moment(u, v, k, s, h) result(self)
-    double precision, intent(in) :: u, v, k, s, h
-    
-    self%u = u
-    self%v = v
-    self%k = k
-    self%s = s
-    self%h = h
-    
-    call self%construct_moment()
-    
-  end function init_moment
-  
-  !---------------------------------------------------------------------
+
   
   subroutine moment_construct_moment(self)
     class(moment), intent(inout) :: self

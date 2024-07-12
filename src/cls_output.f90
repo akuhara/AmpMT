@@ -12,6 +12,7 @@ module cls_output
      
      double precision, allocatable :: pol_cum(:,:)
      integer :: n_pol_cum = 0
+     integer :: n_stations = 0
      
      double precision, allocatable :: source_a(:), source_b(:)
      double precision, allocatable :: fault_h(:), fault_v(:)
@@ -19,8 +20,10 @@ module cls_output
      double precision, allocatable :: p_strike(:), b_strike(:), t_strike(:)
      double precision, allocatable :: likelihood(:)
      double precision, allocatable :: mxx(:), myy(:), mzz(:), mxy(:), mxz(:), myz(:)
+     double precision, allocatable :: q(:)
      integer :: n_source_type = 0
      integer :: n_fault_type = 0
+     
      
    contains 
      procedure :: count_pol => output_count_pol
@@ -31,6 +34,7 @@ module cls_output
      procedure :: count_principal_axes => output_count_principal_axes
      procedure :: save_likelihood => output_save_likelihood
      procedure :: save_moment => output_save_moment
+     procedure :: save_q => output_save_q
      procedure :: get_n_pol_cum => output_get_n_pol_cum
      procedure :: set_pol_cum => output_set_pol_cum
      procedure :: set_n_pol_cum => output_set_n_pol_cum
@@ -41,6 +45,7 @@ module cls_output
      procedure :: write_fault_type => output_write_fault_type
      procedure :: write_principal_axes => output_write_principal_axes
      procedure :: write_summary => output_write_summary
+     procedure :: write_q => output_write_q
      
   end type output
   
@@ -55,14 +60,16 @@ contains
   
   type(output) function init_output() result(self)
     
+    
     self%n_phi = 360.0d0 / self%d_phi
     self%n_theta = 90.0d0 / self%d_theta
     
     
     allocate(self%pol_cum(self%n_phi, self%n_theta))
+    
     self%pol_cum = 0.0d0
 
-
+    
     self%source_a = [ double precision :: ]
     self%source_b = [ double precision :: ]
     self%fault_h = [ double precision :: ]
@@ -80,6 +87,7 @@ contains
     self%mxy = [ double precision :: ]
     self%mxz = [ double precision :: ]
     self%myz = [ double precision :: ]
+    self%q = [ double precision :: ]
     
   end function init_output
   
@@ -111,6 +119,18 @@ contains
     
   end subroutine output_save_moment
 
+  !---------------------------------------------------------------------
+
+  subroutine output_save_q(self, q)
+    class(output), intent(inout) :: self
+    double precision, intent(in) :: q(:)
+
+    self%n_stations = size(q)
+    self%q = [self%q, q(1:self%n_stations)]
+    
+    
+  end subroutine output_save_q
+  
   !---------------------------------------------------------------------
   
   subroutine output_count_pol(self, mt)
@@ -563,5 +583,41 @@ contains
   end subroutine output_write_summary
 
   !--------------------------------------------------------------
+
+  subroutine output_write_q(self, filename, mode)
+    class(output), intent(inout) :: self
+    character(len=*), intent(in) :: filename
+    character(len=*), intent(in), optional :: mode
+    character(len=20) :: fmt
+    integer :: io, ierr
+    integer :: i, j
+    
+    if (present(mode)) then
+       if (mode == 'replace') then
+          open(newunit=io, file=filename, status='replace', iostat=ierr)
+       else if (mode == 'append') then
+          open(newunit=io, file=filename, status='old', iostat=ierr, &
+               position='append')
+       else
+          print *, 'Error: mode must be either "replace" or "append"'
+          error stop
+       end if
+    else
+       open(newunit=io, file=filename, status='replace', iostat=ierr)
+    end if
+
+    if (ierr /= 0) then
+       print *, 'Error opening file'
+       error stop
+    end if
+
+    print *, 'Writing to file ', filename
+    write(fmt, '(A, I0, A)') '(', self%n_stations, 'F8.3)'
+    do i = 1, size(self%q) / self%n_stations
+       write(io, fmt) (self%q((i-1)*self%n_stations + j), j= 1, self%n_stations)
+    end do
+    close(io)
+    
+  end subroutine output_write_q
   
 end module cls_output
