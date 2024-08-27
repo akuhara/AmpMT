@@ -37,19 +37,21 @@ COV =
 BINDIR = ../bin
 CMT_BY_AMP = $(BINDIR)/cmt_by_amp
 
-OBJS_CMT_BY_AMP = cmt_by_amp.o cls_radiation.o cls_observation.o cls_moment.o cls_model.o mod_random.o mod_mpi.o cls_parallel.o cls_mcmc.o cls_forward.o cls_output.o
+OBJS_CMT_BY_AMP = cmt_by_amp.o cls_radiation.o cls_observation.o cls_moment.o cls_model.o mod_random.o mod_mpi.o cls_parallel.o cls_mcmc.o cls_forward.o cls_output.o cls_param.o cls_line_text.o
 
 TARGET = $(CMT_BY_AMP)
 .PHONY: all
 all: $(TARGET)
 
 cmt_by_amp.o: cls_radiation.mod cls_observation.mod cls_moment.mod \
-	      cls_model.mod mod_mpi.mod cls_mcmc.mod cls_parallel.mod cls_forward.mod cls_output.mod
+	      cls_model.mod mod_mpi.mod cls_mcmc.mod cls_parallel.mod \
+              cls_forward.mod cls_output.mod cls_param.mod
 cls_model.o: mod_random.mod
 cls_prallel.o: mod_mpi.mod cls_mcmc.mod mod_random.mod
 cls_mcmc.o: mod_random.mod cls_model.mod
 cls_forward.o: cls_model.mod cls_moment.mod cls_observation.mod cls_radiation.mod
 cls_output.o: cls_radiation.mod cls_moment.mod
+cls_param.o: cls_line_text.mod
 
 $(CMT_BY_AMP): $(OBJS_CMT_BY_AMP)
 	@if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi

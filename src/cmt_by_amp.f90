@@ -20,6 +20,8 @@ program cmtbyamp
   use cls_mcmc, only: mcmc
   use cls_forward, only: forward
   use cls_output, only: output
+  use cls_param, only: param
+  use cls_line_text, only: line_max
   implicit none
   double precision, parameter :: pi = acos(-1.0d0)
 
@@ -33,10 +35,10 @@ program cmtbyamp
   character(16), allocatable :: stations(:)
   integer :: i, j, n_sta, n_evt, i_sta, i_evt
   integer :: ierr, rank, n_procs
-  integer :: n_chain = 5, n_iter = 500000, n_cool = 1, n_burn = 250000
-  integer :: n_interval = 5000
+  integer :: n_chain, n_iter, n_burn
+  integer :: n_interval
   double precision :: q_min = 0.65d0, q_max = 1.d0
-  double precision :: temp_high = 300.d0, temp
+  double precision ::  temp
   double precision, allocatable :: q_array(:)
   type(radiation) :: rad
   type(observation) :: obs
@@ -46,15 +48,16 @@ program cmtbyamp
   type(parallel) :: pt
   type(mcmc) :: mc
   type(forward) :: fwd
+  type(param) :: para
   type(output), allocatable :: out(:)
-  character(*), parameter :: pol_file = "/home/akuhara/Develop/CMTbyAmp/Data/obs_least.dat"
-  character(*), parameter :: sta_file = "/home/akuhara/Develop/CMTbyAmp/Data/station.list"
+  character(len=line_max) :: param_file
   logical :: verb
   double precision, parameter :: eps = epsilon(1.d0)
   double precision :: log_prior_ratio, log_likelihood
   logical :: prior_ok
-  integer :: id
-  logical, parameter :: dc_only = .true.
+  integer :: id, n_args
+  logical, parameter :: dc_only = .false.
+  
   
   call mpi_init(ierr)
   call mpi_comm_rank(mpi_comm_world, rank, ierr)
@@ -65,10 +68,37 @@ program cmtbyamp
   else
      verb = .false.
   end if
-  
+
+  ! Get argument
+  n_args = command_argument_count()
+  if (n_args /= 1) then
+     error stop "USAGE: hypo_tremor_mcmc [parameter file]"
+  end if
+  call get_command_argument(1, param_file)
+
+
+  ! Read parameter file
+  para = param(param_file, verb=verb)
+  n_iter = para%get_n_iter()
+  n_burn = para%get_n_burn()
+  n_chain = para%get_n_chains()
+  n_interval = para%get_n_interval()
+  call mpi_barrier(MPI_COMM_WORLD, ierr)
+
+  ! Check if MPI process number is as intended
+  if (verb .and. n_procs /= para%get_n_procs()) then
+     write(*,*) "ERROR: n_procs in parameter file must be " // &
+          & "equal to that is given in the command line"
+     call mpi_abort(MPI_COMM_WORLD, MPI_ERR_OTHER, ierr)
+  end if
+
   call init_random(14141424, 22341, 100984, 92842433, rank)
+
   
-  obs = observation(sta_file = sta_file, pol_file=pol_file)
+  obs = observation(                        &
+       sta_file = para%get_station_file(),  &
+       pol_file = para%get_polarity_file()  &
+       )
   n_sta = obs%get_n_stations()
   n_evt = obs%get_n_events()
 
@@ -100,11 +130,12 @@ program cmtbyamp
   ! Initialize moment
   allocate(mt(n_evt))
   
-  mt(1) = moment(u=3.d0*pi/8.d0, v=0.d0, k=pi, s=0.d0, h=0.5d0, dc_only=dc_only)
+  mt(1) = moment(u=3.d0*pi/8.d0, v=0.d0, k=pi, s=0.d0, h=0.5d0, &
+       dc_only=para%get_dc_only())
   m = mt(1)%get_moment()
 
-
-  pt = parallel(n_proc = n_procs, rank = rank, n_chain = n_chain, verb = verb)
+  pt = parallel(n_proc = n_procs, rank = rank, &
+       n_chain = n_chain, verb = verb)
   do j = 1, n_chain
      ! set model parameters 
      u = model(nx=n_evt)
@@ -150,22 +181,22 @@ program cmtbyamp
 
 
      mc = mcmc(&
-          u = u, &
-          v = v, &
-          k = k, &
-          s = s, &
-          h = h, &
-          q = q, &
-          n_iter = n_iter, &
-          dc_only = dc_only)
+          u       = u, &
+          v       = v, &
+          k       = k, &
+          s       = s, &
+          h       = h, &
+          q       = q, &
+          n_iter  = n_iter, &
+          dc_only = para%get_dc_only())
 
 
      
      ! Set temperatures
-     if (j <= n_cool) then
+     if (j <= para%get_n_cool()) then
         call mc%set_temp(1.d0)
      else
-        temp = exp((rand_u() * (1.d0 - eps) + eps) * log(temp_high))
+        temp = exp((rand_u() * (1.d0 - eps) + eps) * log(para%get_temp_high()))
 
         call mc%set_temp(temp)
      end if
