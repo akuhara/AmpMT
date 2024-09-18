@@ -12,6 +12,7 @@ module cls_forward
      double precision :: m(3,3)
      integer :: n_stations
      integer :: n_events
+     logical ::sample_prior
      
    contains
      
@@ -27,10 +28,12 @@ contains
 
   !-----------------------------------------------------------------------
 
-  type(forward) function init_forward(obs) result(self)
+  type(forward) function init_forward(obs, sample_prior) result(self)
     type(observation), intent(in) :: obs
+    logical, intent(in) :: sample_prior
 
     self%obs = obs
+    self%sample_prior = sample_prior
     self%n_stations = obs%get_n_stations()
     self%n_events = obs%get_n_events()
 
@@ -60,7 +63,8 @@ contains
     inc = self%obs%get_inc()
 
     log_likelihood = 0.d0
-
+    if (self%sample_prior) return
+    
     ! Calculate the forward model
     
     do i_evt = 1, self%n_events

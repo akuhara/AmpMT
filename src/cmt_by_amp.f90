@@ -119,7 +119,7 @@ program cmtbyamp
      end do
   end do
 
-  fwd = forward(obs=obs)
+  fwd = forward(obs=obs, sample_prior=para%get_sample_prior())
 
   allocate(out(n_evt))
   do i = 1, n_evt
