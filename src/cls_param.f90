@@ -47,6 +47,7 @@ module cls_param
      ! Mode
      logical :: dc_only
      logical :: sample_prior
+     logical :: use_amp
           
      ! Verbosity
      logical :: verb
@@ -62,6 +63,7 @@ module cls_param
      procedure :: get_temp_high => param_get_temp_high
      procedure :: get_dc_only => param_get_dc_only
      procedure :: get_sample_prior => param_get_sample_prior
+     procedure :: get_use_amp => param_get_use_amp
      procedure :: get_station_file => param_get_station_file
      procedure :: get_polarity_file => param_get_polarity_file
      procedure :: set_value => param_set_value
@@ -150,7 +152,9 @@ contains
     else if (name == "dc_only") then
        read(val,*) self%dc_only
     else if (name == "sample_prior") then
-        read(val,*) self%sample_prior
+       read(val,*) self%sample_prior
+    else if (name == "use_amp") then
+        read(val,*) self%use_amp
     else if (name == "n_procs") then
        read(val,*) self%n_procs
     else if (name == "n_iter") then
@@ -257,6 +261,16 @@ contains
     return 
   end function param_get_sample_prior
 
+  !---------------------------------------------------------------------
+
+  logical function param_get_use_amp(self) result(use_amp)
+    class(param), intent(in) :: self
+    
+    use_amp = .true.
+
+    return 
+  end function param_get_use_amp
+  
   !---------------------------------------------------------------------
 
   double precision function param_get_temp_high(self) result(temp_high)

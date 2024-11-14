@@ -36,10 +36,13 @@ FFTW   = -I/usr/include -lfftw3 -L/usr/lib64
 COV =
 BINDIR = ../bin
 CMT_BY_AMP = $(BINDIR)/cmt_by_amp
+MT2AMP = $(BINDIR)/mt2amp
 
 OBJS_CMT_BY_AMP = cmt_by_amp.o cls_radiation.o cls_observation.o cls_moment.o cls_model.o mod_random.o mod_mpi.o cls_parallel.o cls_mcmc.o cls_forward.o cls_output.o cls_param.o cls_line_text.o
 
-TARGET = $(CMT_BY_AMP)
+OBJS_MT2AMP = mt2amp.o cls_radiation.o
+
+TARGET = $(CMT_BY_AMP) $(MT2AMP)
 .PHONY: all
 all: $(TARGET)
 
@@ -52,11 +55,15 @@ cls_mcmc.o: mod_random.mod cls_model.mod
 cls_forward.o: cls_model.mod cls_moment.mod cls_observation.mod cls_radiation.mod
 cls_output.o: cls_radiation.mod cls_moment.mod
 cls_param.o: cls_line_text.mod
+mt2amp.o: cls_radiation.mod
 
 $(CMT_BY_AMP): $(OBJS_CMT_BY_AMP)
 	@if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
 	$(FC) $(FFLAGS) $(COV) $^ $(FFTW) -o $@
 
+$(MT2AMP): $(OBJS_MT2AMP)
+	@if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
+	$(FC) $(FFLAGS) $(COV) $^ $(FFTW) -o $@
 
 .PHONY: clean
 clean:

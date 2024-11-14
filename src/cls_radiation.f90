@@ -139,7 +139,9 @@ contains
        y = y_on_sphere * sqrt(2.d0 / (1.d0 - z_on_sphere))
     end if
     
-    
+    x = x / sqrt(2.d0)
+    y = y / sqrt(2.d0)
+   
     
   end subroutine radiation_calc_projection_point
 

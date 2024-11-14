@@ -9,8 +9,10 @@ module cls_observation
      integer :: n_events
      integer :: n_stations
      integer, allocatable :: n_obs(:)
+     logical :: use_amp
  
      double precision, allocatable :: azi(:,:), inc(:,:)
+     double precision, allocatable :: amp(:,:)
      character(len=1), allocatable :: pol(:,:)
      character(len=16), allocatable :: sta(:)
    contains
@@ -26,6 +28,8 @@ module cls_observation
      procedure :: get_inc_all => observation_get_inc_all
      procedure :: get_pol_single => observation_get_pol_single
      procedure :: get_pol_all => observation_get_pol_all
+     procedure :: get_amp_single => observation_get_amp_single
+      procedure :: get_amp_all => observation_get_amp_all
      procedure :: get_sta_id => observation_get_sta_id
      procedure :: get_stations => observation_get_stations
      
@@ -34,6 +38,7 @@ module cls_observation
      generic :: get_azi => get_azi_single, get_azi_all
      generic :: get_inc => get_inc_single, get_inc_all
      generic :: get_pol => get_pol_single, get_pol_all
+     generic :: get_amp => get_amp_single, get_amp_all
      
      
    end type observation
@@ -48,12 +53,14 @@ contains
 
   !-----------------------------------------------------------------------
   
-  type(observation) function init_observation(sta_file, pol_file) &
+  type(observation) function init_observation(sta_file, pol_file, use_amp) &
        result(self)
     character(*), intent(in) :: sta_file, pol_file
+    logical, intent(in) :: use_amp
     
     self%sta_file = sta_file
     self%pol_file = pol_file
+    self%use_amp = use_amp
 
 
     call self%read_sta_file()
@@ -81,7 +88,7 @@ contains
 
     block
       integer :: id, n_obs, i, n_obs_max, i_evt, i_obs, sta_id
-      double precision :: lat, lon, dep, azi, inc
+      double precision :: lat, lon, dep, azi, inc, amp
       character(len=256) :: time, dummy
       character(len=16) :: sta
       character(len=1) :: pol
@@ -109,8 +116,11 @@ contains
       allocate(self%azi(self%n_stations, self%n_events))
       allocate(self%inc(self%n_stations, self%n_events))
       allocate(self%pol(self%n_stations, self%n_events))
+      allocate(self%amp(self%n_stations, self%n_events))
       self%azi = 0.0
       self%inc = 0.0
+      self%amp = -12345.d0 ! The absolute value of this dummy value
+                           ! must be larger than amp_ignore in cls_forward module.
       self%pol = '-'
       
       rewind(io)
@@ -120,11 +130,28 @@ contains
           read(io, *) sta_id, time, lat, lon, dep
           read(io, *) dummy, n_obs
           do i_obs = 1, n_obs
-             read(io, *) sta, azi, inc, pol
+             if (.not. self%use_amp) then
+                read(io, *) sta, azi, inc, pol
+             else
+                read(io, *) sta, azi, inc, pol, amp
+             end if
              sta_id = self%get_sta_id(sta)
              self%azi(sta_id, i_evt) = azi
              self%inc(sta_id, i_evt) = inc
              self%pol(sta_id, i_evt) = pol
+             if (self%pol(sta_id, i_evt) /= 'U' .and. &
+                  & self%pol(sta_id, i_evt) /= 'D') then
+                print *, 'Error: polarity must be U or D'
+                error stop
+             end if
+             if (self%use_amp) then
+                if (self%pol(sta_id, i_evt) == 'U') then
+                   amp = exp(amp)
+                else if (self%pol(sta_id, i_evt) == 'D') then
+                   amp = -exp(amp)
+                end if
+                self%amp(sta_id, i_evt) = amp
+             end if
              
           end do
       end do
@@ -135,8 +162,14 @@ contains
       if (debug) then
          do i_evt = 1, self%n_events
             do i_obs = 1, self%n_obs(i_evt)
-               print *, i_evt, self%azi(i_obs, i_evt), &
-                    & self%inc(i_obs, i_evt), self%pol(i_obs, i_evt)
+               if (.not. self%use_amp) then
+                  print *, i_evt, self%azi(i_obs, i_evt), &
+                       & self%inc(i_obs, i_evt), self%pol(i_obs, i_evt)
+               else
+                  print *, i_evt, self%azi(i_obs, i_evt), &
+                       & self%inc(i_obs, i_evt), self%pol(i_obs, i_evt), &
+                       & self%amp(i_obs, i_evt)
+               end if
             end do
          end do
       end if
@@ -298,6 +331,32 @@ contains
          = self%pol(1:self%n_stations, 1:self%n_events)
 
   end function observation_get_pol_all
+  
+  !-----------------------------------------------------------------------
+
+  function observation_get_amp_single(self, i_evt) result(amp)
+    class(observation), intent(in) :: self
+    integer, intent(in) :: i_evt
+    double precision :: amp(self%n_stations)
+
+    if (i_evt > self%n_events .or. i_evt < 1) then
+       print *, 'Error: event number ', i_evt, ' is out of range'
+       error stop
+    end if
+    amp(1:self%n_stations) = self%amp(1:self%n_stations, i_evt)
+
+  end function observation_get_amp_single
+  
+  !-----------------------------------------------------------------------
+
+  function observation_get_amp_all(self) result(amp)
+    class(observation), intent(in) :: self
+    double precision :: amp(self%n_stations, self%n_events)
+
+    amp(1:self%n_stations, 1:self%n_events) &
+         = self%amp(1:self%n_stations, 1:self%n_events)
+    
+  end function observation_get_amp_all
   
   !-----------------------------------------------------------------------
 

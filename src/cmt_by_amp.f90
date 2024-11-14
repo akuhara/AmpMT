@@ -92,12 +92,14 @@ program cmtbyamp
      call mpi_abort(MPI_COMM_WORLD, MPI_ERR_OTHER, ierr)
   end if
 
-  call init_random(14141424, 22341, 100984, 92842433, rank)
+  !call init_random(14141424, 22341, 100984, 92842433, rank)
+  call init_random(14141424, 4441341, 100984, 92842433, rank)
 
   
   obs = observation(                        &
        sta_file = para%get_station_file(),  &
-       pol_file = para%get_polarity_file()  &
+       pol_file = para%get_polarity_file(),  &
+       use_amp  = para%get_use_amp()          &
        )
   n_sta = obs%get_n_stations()
   n_evt = obs%get_n_events()
@@ -119,7 +121,7 @@ program cmtbyamp
      end do
   end do
 
-  fwd = forward(obs=obs, sample_prior=para%get_sample_prior())
+  fwd = forward(obs=obs, sample_prior=para%get_sample_prior(), use_amp=para%get_use_amp())
 
   allocate(out(n_evt))
   do i = 1, n_evt
@@ -394,6 +396,5 @@ program cmtbyamp
 
 
   call mpi_finalize(ierr)
-  
 end program cmtbyamp
   
