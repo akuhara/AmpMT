@@ -46,10 +46,12 @@ contains
 
   !-----------------------------------------------------------------------
 
-  subroutine forward_forward_calculation_full(self, u, v, k, s, h, q, log_likelihood)
+  subroutine forward_forward_calculation_full(self, u, v, k, s, h, q, &
+       & log_likelihood, a_mle)
     class(forward), intent(inout) :: self
     type(model), intent(in) :: u, v, k, s, h, q
     double precision, intent(out) :: log_likelihood
+    double precision, intent(out) :: a_mle
     type(moment) :: mt
     double precision :: m(3,3)
     type(radiation) :: rad
@@ -61,6 +63,7 @@ contains
     double precision, parameter :: pi = acos(-1.d0)
     double precision :: amp(3)
     double precision :: tmp
+    
     
 
     integer :: n_amp
@@ -87,8 +90,9 @@ contains
        os = 0.d0
        ss = 0.d0
        oo = 0.d0
+       a_mle = 0.d0
        do i_sta = 1, self%n_stations
-          if (pol(i_sta, i_evt) == '-') cycle
+          if (pol(i_sta, i_evt) == '.') cycle
           call rad%calc_radiation(phi = azi(i_sta, i_evt) * pi / 180.d0, &
                theta = inc(i_sta, i_evt) * pi / 180.d0, &
                phase = "P", amp=amp)
@@ -109,7 +113,6 @@ contains
              ss = ss + amp(1) * amp(1)
              oo = oo + amp_obs(i_sta, i_evt) * amp_obs(i_sta, i_evt)
              os = os + amp(1) * amp_obs(i_sta, i_evt)
-             
              n_amp = n_amp + 1
           end if
        end do
@@ -118,6 +121,7 @@ contains
           log_likelihood = log_likelihood - &
                & 0.5d0 * n_amp * log(1.d0 - os*os / (ss * oo))
           !log_likelihood = log_likelihood
+          a_mle = os / ss
        end if
        
     end do

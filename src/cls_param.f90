@@ -266,7 +266,7 @@ contains
   logical function param_get_use_amp(self) result(use_amp)
     class(param), intent(in) :: self
     
-    use_amp = .true.
+    use_amp = self%use_amp
 
     return 
   end function param_get_use_amp

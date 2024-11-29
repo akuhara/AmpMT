@@ -18,7 +18,7 @@ module cls_output
      double precision, allocatable :: fault_h(:), fault_v(:)
      double precision, allocatable :: p_dip(:), b_dip(:), t_dip(:)
      double precision, allocatable :: p_strike(:), b_strike(:), t_strike(:)
-     double precision, allocatable :: likelihood(:)
+     double precision, allocatable :: likelihood(:), a_mle(:)
      double precision, allocatable :: mxx(:), myy(:), mzz(:), mxy(:), mxz(:), myz(:)
      double precision, allocatable :: q(:)
      integer :: n_source_type = 0
@@ -33,6 +33,7 @@ module cls_output
      procedure :: count_fault_type => output_count_fault_type
      procedure :: count_principal_axes => output_count_principal_axes
      procedure :: save_likelihood => output_save_likelihood
+     procedure :: save_a_mle => output_save_a_mle
      procedure :: save_moment => output_save_moment
      procedure :: save_q => output_save_q
      procedure :: get_n_pol_cum => output_get_n_pol_cum
@@ -81,6 +82,7 @@ contains
     self%b_strike = [ double precision :: ]
     self%t_strike = [ double precision :: ]
     self%likelihood = [ double precision :: ]
+    self%a_mle = [ double precision :: ]
     self%mxx = [ double precision :: ]
     self%myy = [ double precision :: ]
     self%mzz = [ double precision :: ]
@@ -100,6 +102,16 @@ contains
     self%likelihood = [self%likelihood, likelihood]
     
   end subroutine output_save_likelihood
+
+  !---------------------------------------------------------------------
+
+  subroutine output_save_a_mle(self, a_mle)
+    class(output), intent(inout) :: self
+    double precision, intent(in) :: a_mle
+    
+    self%a_mle = [self%a_mle, a_mle]
+    
+  end subroutine output_save_a_mle
   
   !---------------------------------------------------------------------
 
@@ -570,13 +582,14 @@ contains
 
     do i = 1, size(self%likelihood)
        ! mrr, mtt, mff, mrt, mrf, mtf
-       write(io, '(E16.3,6F8.3,6F9.2,4F8.3)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
+       write(io, '(E16.3,6F8.3,6F9.2,5F8.3)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
             self%mxz(i), -self%myz(i), -self%mxy(i), &
             self%t_strike(i), self%t_dip(i), &
             self%b_strike(i), self%b_dip(i), &
             self%p_strike(i), self%p_dip(i), &
             self%fault_h(i), self%fault_v(i), &
-            self%source_a(i), self%source_b(i)
+            self%source_a(i), self%source_b(i), &
+            self%a_mle(i)
     end do
     close(io)
     
@@ -611,8 +624,12 @@ contains
        error stop
     end if
 
-    print *, 'Writing to file ', filename
+    print *, 'Writing to file ', trim(filename)
     write(fmt, '(A, I0, A)') '(', self%n_stations, 'F8.3)'
+    if (size(self%q) == 0) then
+       print *, 'No data to write'
+       return
+    end if
     do i = 1, size(self%q) / self%n_stations
        write(io, fmt) (self%q((i-1)*self%n_stations + j), j= 1, self%n_stations)
     end do

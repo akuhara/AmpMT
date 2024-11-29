@@ -57,6 +57,7 @@ program cmtbyamp
   logical :: prior_ok
   integer :: id, n_args
   logical, parameter :: dc_only = .false.
+  double precision :: a_mle
   
   
   call mpi_init(ierr)
@@ -93,7 +94,8 @@ program cmtbyamp
   end if
 
   !call init_random(14141424, 22341, 100984, 92842433, rank)
-  call init_random(14141424, 4441341, 100984, 92842433, rank)
+  !call init_random(14141424, 4441341, 100984, 92842433, rank)
+  call init_random(54145424, 4411341, 220984, 4442433, rank)
 
   
   obs = observation(                        &
@@ -204,6 +206,18 @@ program cmtbyamp
      end if
      call pt%set_mc(j, mc)
   end do
+
+
+  ! Calculate amplitude ratios
+  do j = 1, n_chain
+     mc = pt%get_mc(j)
+     call fwd%forward_calculation_full(u=mc%get_u(), v=mc%get_v(), &
+          k=mc%get_k(), s=mc%get_s(), h=mc%get_h(), q=mc%get_q(), &
+          log_likelihood=log_likelihood, a_mle=a_mle)
+     call mc%set_log_likelihood(log_likelihood)
+     call mc%set_a_mle(a_mle)
+     call pt%set_mc(j, mc)
+  end do
   
   ! Main MCMC loop
 
@@ -220,16 +234,19 @@ program cmtbyamp
 
         if (prior_ok) then
            call fwd%forward_calculation_full(u_perturb, v_perturb, k_perturb, &
-                s_perturb, h_perturb, q_perturb, log_likelihood)
+                s_perturb, h_perturb, q_perturb, log_likelihood, a_mle)
         end if
         
         call mc%judge_model(u_perturb, v_perturb, k_perturb, &
-             s_perturb, h_perturb, q_perturb, log_likelihood, log_prior_ratio, prior_ok)
+             s_perturb, h_perturb, q_perturb, log_likelihood, a_mle, &
+             & log_prior_ratio, prior_ok)
         call pt%set_mc(j, mc)
 
         ! recording
         if (mc%get_temp() < 1.d0 + eps .and. mod(i, n_interval) == 1 .and. &
              i > n_burn) then
+
+           
            !write(222,*) i, j, mc%write_out_q()
            !write(333,*) i, j, mc%write_out_u()
            !write(444,*) i, j, mc%write_out_v()
@@ -240,6 +257,7 @@ program cmtbyamp
            s = mc%get_s()
            h = mc%get_h()
            q_array = mc%write_out_q()
+           !print *, size(q_array), "q_array"
            do i_evt = 1, n_evt
               mt(i_evt) = moment(u=u%get_x(i_evt), v=v%get_x(i_evt), &
                    k=k%get_x(i_evt), s=s%get_x(i_evt), h=h%get_x(i_evt))
@@ -248,6 +266,7 @@ program cmtbyamp
               call out(i_evt)%count_fault_type(mt(i_evt))
               call out(i_evt)%count_principal_axes(mt(i_evt))
               call out(i_evt)%save_likelihood(mc%get_log_likelihood())
+              call out(i_evt)%save_a_mle(mc%get_a_mle())
               call out(i_evt)%save_moment(mt(i_evt))
               call out(i_evt)%save_q(q_array((i_evt-1)*n_sta+1:i_evt*n_sta))
               !call mt(i_evt)%check_eigen()
@@ -333,7 +352,7 @@ program cmtbyamp
        if (rank == 0) then
           call out(i)%write_principal_axes(out_file, "replace")
        end if
-       call mpi_barrier(MPI_COMM_WORLD, ierr)
+      call mpi_barrier(MPI_COMM_WORLD, ierr)
 
        do j = 1, n_procs-1
           if (rank == j) then
@@ -361,19 +380,20 @@ program cmtbyamp
        ! data quality
 
        write(out_file, "(A, I5.5, A)") "quality_", i, ".dat"
-
-        if (rank == 0) then
-           call out(i)%write_q(out_file, "replace")
-        end if
-        call mpi_barrier(MPI_COMM_WORLD, ierr)
-
-        do j = 1, n_procs-1
-           if (rank == j) then
-              call out(i)%write_q(out_file, "append")
-           end if
-           call mpi_barrier(MPI_COMM_WORLD, ierr)
-        end do
-        
+      
+       if (rank == 0) then
+          call out(i)%write_q(out_file, "replace")
+       end if
+       call mpi_barrier(MPI_COMM_WORLD, ierr)
+       
+       do j = 1, n_procs-1
+          if (rank == j) then
+             print *, "rank", rank, "writing q"
+             call out(i)%write_q(out_file, "append")
+          end if
+          call mpi_barrier(MPI_COMM_WORLD, ierr)
+       end do
+       
        
     end do
   end block

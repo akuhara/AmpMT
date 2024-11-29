@@ -22,6 +22,7 @@ module cls_mcmc
      integer :: i_proposal_type
      double precision :: log_likelihood
      double precision :: temp = 1.d0
+     double precision :: a_mle
      logical :: is_accepted
 
      logical :: dc_only = .false.
@@ -33,8 +34,11 @@ module cls_mcmc
      procedure :: propose_model => mcmc_propose_model
      procedure :: judge_model   => mcmc_judge_model
      procedure :: one_step_summary => mcmc_one_step_summary
+     procedure :: set_log_likelihood => mcmc_set_log_likelihood
      procedure :: set_temp => mcmc_set_temp
      procedure :: get_temp => mcmc_get_temp
+     procedure :: set_a_mle => mcmc_set_a_mle
+     procedure :: get_a_mle => mcmc_get_a_mle
      procedure :: get_log_likelihood => mcmc_get_log_likelihood
      procedure :: get_n_propose => mcmc_get_n_propose
      procedure :: get_n_accept => mcmc_get_n_accept
@@ -44,6 +48,7 @@ module cls_mcmc
      procedure :: get_k => mcmc_get_k
      procedure :: get_s => mcmc_get_s
      procedure :: get_h => mcmc_get_h
+     procedure :: get_q => mcmc_get_q
      procedure :: get_label => mcmc_get_label
 
      procedure :: write_out_u => mcmc_write_out_u
@@ -113,6 +118,9 @@ contains
     print *, self%p_u, self%p_v, self%p_k, self%p_s, self%p_h, self%p_q
     print *, "n_events = ", self%n_events
     print *, "n_sta = ", self%n_sta
+
+    self%a_mle = 0.d0
+    
     return 
   end function init_mcmc
 
@@ -180,10 +188,11 @@ contains
   !---------------------------------------------------------------------
 
   subroutine mcmc_judge_model(self, u, v, k, s, h, q, &
-       & log_likelihood, log_prior_ratio, prior_ok)
+       & log_likelihood, a_mle, log_prior_ratio, prior_ok)
     class(mcmc), intent(inout) :: self
     type(model), intent(in) :: u, v, k, s, h, q
     double precision, intent(in) :: log_likelihood, log_prior_ratio
+    double precision, intent(in) :: a_mle
     logical, intent(in) :: prior_ok
     double precision :: ratio
     double precision :: r
@@ -219,6 +228,7 @@ contains
        self%h = h
        self%q = q
        self%log_likelihood = log_likelihood
+       self%a_mle = a_mle
        if (self%temp < 1.d0 + eps) then
           self%n_accept(self%i_proposal_type) = &
                & self%n_accept(self%i_proposal_type) + 1
@@ -244,6 +254,17 @@ contains
   end subroutine mcmc_one_step_summary
 
   !---------------------------------------------------------------------
+
+  subroutine mcmc_set_log_likelihood(self, log_likelihood)
+    class(mcmc), intent(inout) :: self
+    double precision, intent(in) :: log_likelihood
+
+    self%log_likelihood = log_likelihood
+
+    return 
+  end subroutine mcmc_set_log_likelihood
+  
+  !---------------------------------------------------------------------
   
   subroutine mcmc_set_temp(self, temp)
     class(mcmc), intent(inout) :: self
@@ -263,6 +284,27 @@ contains
     
     return 
   end function mcmc_get_temp
+
+  !---------------------------------------------------------------------
+
+  subroutine mcmc_set_a_mle(self, a_mle)
+    class(mcmc), intent(inout) :: self
+    double precision, intent(in) :: a_mle
+    
+    self%a_mle = a_mle
+    
+    return 
+  end subroutine mcmc_set_a_mle
+  
+  !---------------------------------------------------------------------
+
+  double precision function mcmc_get_a_mle(self) result(a_mle)
+    class(mcmc), intent(in) :: self
+    
+    a_mle = self%a_mle
+    
+    return 
+  end function mcmc_get_a_mle
 
   !---------------------------------------------------------------------
 
@@ -362,6 +404,17 @@ contains
     return 
   end function mcmc_get_h
 
+  !---------------------------------------------------------------------
+
+  function mcmc_get_q(self) result(q)
+    class(mcmc), intent(in) :: self
+    type(model) :: q
+    
+    q = self%q
+    
+    return 
+  end function mcmc_get_q
+  
   !---------------------------------------------------------------------
     
   function mcmc_get_label(self) result(label)
