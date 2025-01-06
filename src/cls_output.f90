@@ -218,9 +218,11 @@ contains
     class(output), intent(inout) :: self
     type(moment), intent(in) :: mt
     double precision :: l(3)
-    double precision :: a, b, l1, l2, l3, l_sum, f
+    double precision :: a, b, l1, l2, l3
+    ! double precision :: f, l_sum
     double precision, parameter :: pi = acos(-1.0d0)
     double precision, parameter :: s3 = sqrt(3.d0)
+    double precision :: m_iso, m_dc, m_clvd
 
     ! Source type plot from Aso et al. (2016): see their type j
     
@@ -228,12 +230,20 @@ contains
     l1 = l(1)
     l2 = l(2)
     l3 = l(3)
-    l_sum = l1 + l2 + l3
-    f = sqrt(1.d0 - abs(l_sum) / s3)
+    !l_sum = l1 + l2 + l3
+    !f = sqrt(1.d0 - abs(l_sum) / s3)
     
 
-    a = 6.d0 / pi * atan((l1 - 2.d0 * l2 + l3) / (s3 * (l1 - l3))) * f
-    b = (l_sum / s3) / (1.d0 + f)
+    
+    !a = 6.d0 / pi * atan((l1 - 2.d0 * l2 + l3) / (s3 * (l1 - l3))) * f
+    !b = (l_sum / s3) / (1.d0 + f)
+
+    m_dc = 0.5d0 * (l1 - l3 - abs(l1 + l3 - 2.d0 * l2))
+    m_clvd = 2.d0 * (l1 + l3 - 2.d0 * l2) / 3.d0 
+    m_iso = (l1 + l2 + l3) / 3.d0
+    
+    a = m_clvd / (m_dc + abs(m_clvd) + abs(m_iso))
+    b = m_iso / (m_dc + abs(m_clvd) + abs(m_iso))
 
     self%n_source_type = self%n_source_type + 1
 
@@ -582,7 +592,7 @@ contains
 
     do i = 1, size(self%likelihood)
        ! mrr, mtt, mff, mrt, mrf, mtf
-       write(io, '(E16.3,6F8.3,6F9.2,5F8.3)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
+       write(io, '(E16.3,6F8.3,6F9.2,5F12.7)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
             self%mxz(i), -self%myz(i), -self%mxy(i), &
             self%t_strike(i), self%t_dip(i), &
             self%b_strike(i), self%b_dip(i), &
