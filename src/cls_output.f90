@@ -265,6 +265,7 @@ contains
     double precision, parameter :: rad45 = 45.d0 * pi / 180.d0
     double precision, parameter :: rad35_264 = 35.264d0 * pi / 180.d0
     double precision :: psi, h, v, denom
+    double precision :: l, n, zt, zp, zb
     
 
     axes = mt%get_principal_axes()
@@ -288,16 +289,25 @@ contains
     b_dip = asin((axes(3,2)) / sqrt(axes(1,2)**2 + axes(2,2)**2 + axes(3,2)**2))
     p_dip = asin((axes(3,3)) / sqrt(axes(1,3)**2 + axes(2,3)**2 + axes(3,3)**2))
     
-    psi = atan(sin(t_dip) / sin(p_dip)) - rad45
+    !psi = atan(sin(t_dip) / sin(p_dip)) - rad45
+    !
+    !denom = sin(rad35_264) * sin(b_dip) + cos(rad35_264) * cos(b_dip) * cos(psi)
+    !denom = denom * 3.d0
+    !
+    !h = sqrt(2.d0) * cos(b_dip) * sin(psi) / denom
+    !v = sqrt(2.d0) * (cos(rad35_264) * sin(b_dip) - sin(rad35_264) * cos(b_dip) * cos(psi)) / &
+    !     denom
 
-    denom = sin(rad35_264) * sin(b_dip) + cos(rad35_264) * cos(b_dip) * cos(psi)
-    denom = denom * 3.d0
 
-    h = sqrt(2.d0) * cos(b_dip) * sin(psi) / denom
-    v = sqrt(2.d0) * (cos(rad35_264) * sin(b_dip) - sin(rad35_264) * cos(b_dip) * cos(psi)) / &
-         denom
-    
-    !print *, "h=", h, "v=", v
+    zp = sin(p_dip)
+    zb = sin(b_dip)
+    zt = sin(t_dip)
+    l = 2.d0 * sin(0.5d0 * acos((zt + zp + zb) / sqrt(3.d0)))
+    n = sqrt(2.d0 * ((zb-zp)**2 + (zb-zt)**2 + (zt-zp)**2))
+    h = sqrt(3.d0) * l / n * (zt - zp)
+    v = l / n * (2.d0 * zb - zp - zt)
+
+
     self%n_fault_type = self%n_fault_type + 1
     
     self%fault_h = [self%fault_h, h]
