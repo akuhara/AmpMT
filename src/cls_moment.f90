@@ -64,7 +64,7 @@ contains
     logical, intent(in), optional :: dc_only
     double precision, parameter :: pi = acos(-1.d0)
 
-    if (present(dc_only) .and. dc_only) then
+    if (present(dc_only)) then 
        if (dc_only) then
           self%u_min = 3.d0 * pi / 8.d0
           self%u_max = 3.d0 * pi / 8.d0
