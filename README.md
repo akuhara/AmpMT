@@ -73,5 +73,10 @@ NOTE: P-wave amplitude must be corrected for radiation pattern beforehand (need 
 
 ### Output files
 
+## summary_00001.dat
+Each line contains a model sampled by MCMC.
+
+Log-likelihood, Mrr, Mtt, Mff, Mrt, Mrf, Mtf 
+
 
 
