@@ -602,7 +602,7 @@ contains
 
     do i = 1, size(self%likelihood)
        ! mrr, mtt, mff, mrt, mrf, mtf
-       write(io, '(E16.3,6F8.3,6F9.2,5F12.7)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
+       write(io, '(E16.6,6F8.3,6F9.2,5F12.7)') self%likelihood(i), self%mzz(i), self%mxx(i), self%myy(i), &
             self%mxz(i), -self%myz(i), -self%mxy(i), &
             self%t_strike(i), self%t_dip(i), &
             self%b_strike(i), self%b_dip(i), &
