@@ -76,7 +76,7 @@ NOTE: P-wave amplitude must be corrected for radiation pattern beforehand (need 
 ## summary_00001.dat
 Each line contains a model sampled by MCMC.
 
-Log-likelihood, Mrr, Mtt, Mff, Mrt, Mrf, Mtf 
+[Log-likelihood], [Mrr], [Mtt], [Mff], [Mrt], [Mrf], [Mtf], [T-strike], [T-dip], [B-strike], [B-dip], [P-strike], [P-dip], [h on ternary diagram], [v on ternary diagram], [h on source-type plot], [v on source-type plot], [normalization constant]
 
 
 
